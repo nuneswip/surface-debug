@@ -524,7 +524,7 @@ function loadInkfishConfigSync(cwd = process.cwd(), defaults = {}) {
   return deepMerge(defaults, userConfig);
 }
 
-class Logger {
+class Core {
   constructor(options = {}) {
     const autoLoad = options.configFile !== false;
     const fileConfig = autoLoad ? loadInkfishConfigSync(process.cwd(), {}) : {};
@@ -580,9 +580,9 @@ ${msg.stack}` : msg;
   }
 }
 
-const inkfish = new Logger();
+const inkfish = new Core();
 const logger = inkfish;
 
-exports.Core = Logger;
+exports.Core = Core;
 exports.inkfish = inkfish;
 exports.logger = logger;
