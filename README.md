@@ -52,7 +52,7 @@
     <strong>Full Preview</strong> — Complete interface
   </summary>
   <p align="center">
-    Runtime  <a href="https://raw.githubusercontent.com/nuneswip/surface-debug/main/assets/preview/preview.js">File</a>
+    Runtime  <a href="https://github.com/nuneswip/surface-debug/blob/main/assets/preview/index.js">File</a>
     <br/><br/>
     <img 
       src="https://raw.githubusercontent.com/nuneswip/surface-debug/main/assets/preview/preview.svg" 
