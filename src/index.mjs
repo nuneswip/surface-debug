@@ -1,7 +1,7 @@
-import { Logger } from "./core/class.mjs";
+import { Core } from "./core/class.mjs";
 
-const inkfish = new Logger();
+const inkfish = new Core();
 
-export { Logger as Core, inkfish };
+export { Core, inkfish };
 
 export const logger = inkfish;

@@ -11,7 +11,7 @@ import { createCompactMode } from "../ui/compact.mjs";
 import { createJSONMode } from "../ui/json.mjs";
 import { loadInkfishConfigSync } from "../config/loader.mjs";
 
-export class Logger {
+export class Core {
     constructor(options = {}) {
         const autoLoad = options.configFile !== false;
         const fileConfig = autoLoad
