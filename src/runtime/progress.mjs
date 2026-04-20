@@ -1,77 +1,39 @@
-import process from "node:process";
-import { getIcon } from "../format/icon.mjs";
-
-function clamp(n, min, max) {
-    return Math.max(min, Math.min(max, n));
-}
-
-function formatNumber(n) {
-    const abs = Math.abs(n);
-
-    if (abs < 1000) return String(n);
-    if (abs < 1e6) return `${(n / 1e3).toFixed(1)}k`;
-    if (abs < 1e9) return `${(n / 1e6).toFixed(1)}M`;
-    return n.toExponential(1);
-}
-
-function formatTime(ms) {
-    if (ms <= 0) return "0ms";
-
-    const s = ms / 1000;
-    if (s < 1) return `${Math.round(ms)}ms`;
-    if (s < 60) return `${s.toFixed(1)}s`;
-
-    const m = s / 60;
-    if (m < 60) return `${Math.floor(m)}m ${Math.floor(s % 60)}s`;
-
-    const h = m / 60;
-    return `${Math.floor(h)}h ${Math.floor(m % 60)}m`;
-}
+import {
+    formatNumber,
+    clamp,
+    formatTime,
+    startProgress,
+    stopProgress,
+    writeRawLine
+} from "../utils/manager.mjs";
 
 export function createProgressMethod(loggerInstance) {
-    loggerInstance.queue ??= Promise.resolve();
-
+    let currentPromise = Promise.resolve();
     const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
-    const width = process.stdout.columns || 100;
-
     return function progress(id, run) {
-        loggerInstance.queue = loggerInstance.queue.then(() => {
+        const resultPromise = currentPromise.then(() => {
             return new Promise((resolve, reject) => {
                 let value = 0;
                 let max = null;
-
-                let frame = 0;
+                let frameIndex = 0;
                 let running = true;
-
                 const startTime = Date.now();
+                const width = process.stdout.columns || 100;
 
-                const iconSuccess = getIcon("success", loggerInstance?.options);
-                const iconError = getIcon("error", loggerInstance?.options);
-
-                const render = () => {
-                    if (!running) return;
-
-                    let line = "";
-
-                    // UNKNOWN MODE
+                const getCurrentLine = () => {
                     if (max == null) {
-                        line = `${frames[frame++ % frames.length]} ${id} │ ${value ? formatNumber(value) : ""}`;
+                        return `${frames[frameIndex % frames.length]} ${id} │ ${value ? formatNumber(value) : ""}`;
                     } else {
                         const safeMax = max || 100;
                         const safeValue = Math.min(value, safeMax);
-
                         const ratio = safeValue / safeMax;
                         const percent = Math.floor(clamp(ratio, 0, 1) * 100);
-
                         const size = 20;
                         const filled = Math.round((percent / 100) * size);
                         const empty = size - filled;
-
                         const bar = "█".repeat(filled) + "░".repeat(empty);
-
                         let eta = "calculating...";
-
                         if (safeValue >= safeMax) {
                             eta = "0ms";
                         } else if (safeValue > 0) {
@@ -79,66 +41,81 @@ export function createProgressMethod(loggerInstance) {
                             const remaining = (safeMax - safeValue) * rate;
                             eta = formatTime(remaining);
                         }
-
-                        line =
-                            `${frames[frame++ % frames.length]} ${id} │ [${bar}] ` +
-                            `${formatNumber(safeValue)}/${formatNumber(safeMax)} | ${percent}% | ETA ${eta}`;
+                        return (
+                            `${frames[frameIndex % frames.length]} ${id} │ [${bar}] ` +
+                            `${formatNumber(safeValue)}/${formatNumber(safeMax)} | ${percent}% | ETA ${eta}`
+                        );
                     }
-
-                    process.stdout.write("\r" + line.padEnd(width));
                 };
 
+                const render = () => {
+                    if (!running) return;
+                    const line = getCurrentLine();
+                    process.stdout.write("\r" + line.padEnd(width));
+                    frameIndex++;
+                };
+
+                startProgress(loggerInstance, id, width, render);
+
                 const interval = setInterval(render, 80);
+                render();
 
                 const stop = () => {
                     running = false;
                     clearInterval(interval);
                     process.stdout.write("\r" + " ".repeat(width) + "\r");
+                    stopProgress(loggerInstance);
+                };
+
+                const api = {
+                    setValue(v) {
+                        value = v;
+                    },
+                    setMax(m) {
+                        if (m != null) max = m;
+                    },
+                    progressEnd() {
+                        if (!running) return;
+                        stop();
+                        const duration = formatTime(Date.now() - startTime);
+                        loggerInstance
+                            .success(`${id} (${duration})`)
+                            .then(() => resolve());
+                    }
                 };
 
                 try {
-                    const result = run({
-                        setValue(v) {
-                            value = v;
-                        },
-                        setMax(m) {
-                            if (m != null) max = m;
-                        },
-                        progressEnd() {
-                            stop();
-
-                            const duration = formatTime(Date.now() - startTime);
-                            process.stdout.write(
-                                `${iconSuccess || "✔ "}${id} (${duration})\n`
-                            );
-
-                            resolve();
-                        }
-                    });
-
+                    const result = run(api);
                     Promise.resolve(result)
                         .then(res => {
-                            stop();
-
-                            const duration = formatTime(Date.now() - startTime);
-                            process.stdout.write(
-                                `${iconSuccess || "✔ "}${id} (${duration})\n`
-                            );
-
-                            resolve(res);
+                            if (running) {
+                                stop();
+                                const duration = formatTime(
+                                    Date.now() - startTime
+                                );
+                                loggerInstance
+                                    .success(`${id} (${duration})`)
+                                    .then(() => resolve(res));
+                            }
                         })
                         .catch(err => {
-                            stop();
-                            process.stdout.write(`${iconError || "✖ "}${id}\n`);
-                            reject(err);
+                            if (running) {
+                                stop();
+                                loggerInstance
+                                    .error(id)
+                                    .then(() => reject(err));
+                            } else reject(err);
                         });
                 } catch (err) {
-                    stop();
-                    reject(err);
+                    if (running) {
+                        stop();
+                        reject(err);
+                    } else reject(err);
                 }
             });
         });
 
-        return loggerInstance.queue;
+        currentPromise = resultPromise.catch(() => {});
+        return resultPromise;
     };
 }

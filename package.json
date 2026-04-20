@@ -56,7 +56,7 @@
     ],
     "scripts": {
         "build": "npx unbuild",
-        "test": "node test-project/build.js",
+        "test": "npm run build && node test-project/build.js",
         "release": "npm run build && npm publish",
         "fix": "npm version patch && npm run release",
         "feat": "npm version minor && npm run release",
@@ -70,7 +70,8 @@
     },
     "dependencies": {
         "chalk": "^5.4.1",
-        "color-name": "^2.1.0"
+        "color-name": "^2.1.0",
+        "jiti": "^2.6.1"
     },
     "devDependencies": {
         "unbuild": "^3.6.1"

@@ -1,9 +1,18 @@
 import chalk from "chalk";
 import colorName from "color-name";
 
-export function applyColor(text, colorName) {
-    const colorFn = chalk[colorName] || chalk.white;
-    return colorFn(text);
+function normalizeColorName(input) {
+    if (!input || typeof input !== "string") return null;
+
+    return input
+        .replace(/Bright$/i, "")
+        .replace(/Dark$/i, "")
+        .toLowerCase();
+}
+
+export function applyColor(text, color) {
+    const fn = chalk[color] || chalk.white;
+    return fn(text);
 }
 
 export function blendColor(input, strength = 0.75) {
@@ -20,18 +29,21 @@ export function blendColor(input, strength = 0.75) {
     let rgb;
 
     if (typeof input === "string" && input.startsWith("#")) {
-        const hex = input.replace("#", "");
+        const hex = input.slice(1);
         const bigint = parseInt(hex, 16);
 
         rgb = [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255];
-    } else if (colorName[input]) {
-        rgb = colorName[input];
     } else {
-        return chalk.white;
+        const normalized = normalizeColorName(input);
+
+        if (normalized && colorName[normalized]) {
+            rgb = colorName[normalized];
+        } else {
+            return chalk.white;
+        }
     }
 
     const [r, g, b] = mixWithWhite(rgb);
-
     return chalk.rgb(r, g, b);
 }
 

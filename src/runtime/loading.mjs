@@ -1,68 +1,50 @@
-import process from "node:process";
-import { getIcon } from "../format/icon.mjs";
-
-function formatDuration(ms) {
-    const s = ms / 1000;
-    if (s < 1) return `${ms}ms`;
-    if (s < 60) return `${s.toFixed(1)}s`;
-
-    const m = s / 60;
-    if (m < 60) return `${Math.floor(m)}m ${Math.floor(s % 60)}s`;
-
-    const h = m / 60;
-    return `${Math.floor(h)}h ${Math.floor(m % 60)}m`;
-}
+import {
+    formatDuration,
+    startLoading,
+    stopLoading,
+    writeRawLine
+} from "../utils/manager.mjs";
 
 export function createLoadingMethod(loggerInstance) {
-    loggerInstance.queue ??= Promise.resolve();
+    let currentPromise = Promise.resolve();
+    const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
     return function loading(text, run) {
-        loggerInstance.queue = loggerInstance.queue.then(async () => {
-            const iconSuccess = getIcon("success", loggerInstance?.options);
-            const iconError = getIcon("error", loggerInstance?.options);
-
-            const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-            let i = 0;
-
-            const start = Date.now();
+        const resultPromise = currentPromise.then(async () => {
             const width = process.stdout.columns || 100;
+            const start = Date.now();
 
+            startLoading(loggerInstance, text, width, frames);
+
+            let frameIndex = 0;
             const interval = setInterval(() => {
-                const line = `${frames[i++ % frames.length]} ${text}`;
-
+                const frame = frames[frameIndex++ % frames.length];
+                const line = `${frame} ${text}`;
                 process.stdout.write("\r" + line.padEnd(width));
             }, 80);
+            loggerInstance._spinnerInterval = interval;
 
             const stop = () => {
                 clearInterval(interval);
+                loggerInstance._spinnerInterval = null;
                 process.stdout.write("\r" + " ".repeat(width) + "\r");
+                stopLoading(loggerInstance);
             };
 
             try {
                 const result = await run();
-
                 stop();
-
                 const duration = formatDuration(Date.now() - start);
-
-                process.stdout.write(
-                    `${iconSuccess || "✔ "}${text} (${duration})\n`
-                );
-
+                await loggerInstance.success(`${text} (${duration})`);
                 return result;
             } catch (err) {
                 stop();
-
-                const duration = formatDuration(Date.now() - start);
-
-                process.stdout.write(
-                    `${iconError || "✖ "}${text} (${duration})\n`
-                );
-
+                await loggerInstance.error(text);
                 throw err;
             }
         });
 
-        return loggerInstance.queue;
+        currentPromise = resultPromise.catch(() => {});
+        return resultPromise;
     };
 }

@@ -9,17 +9,35 @@ import { createProgressMethod } from "../runtime/progress.mjs";
 import { createBoxMethods } from "../ui/box.mjs";
 import { createCompactMode } from "../ui/compact.mjs";
 import { createJSONMode } from "../ui/json.mjs";
+import { loadInkfishConfigSync } from "../config/loader.mjs";
 
 export class Logger {
     constructor(options = {}) {
+        const autoLoad = options.configFile !== false;
+        const fileConfig = autoLoad
+            ? loadInkfishConfigSync(process.cwd(), {})
+            : {};
+
         this.options = {
             timestamp: true,
             icons: true,
             tag: true,
             theme: DEFAULT_THEME,
             iconSet: DEFAULT_ICONS,
+            ...fileConfig,
             ...options
         };
+
+        delete this.options.configFile;
+
+        this._activeLoading = false;
+        this._spinnerInterval = null;
+        this._spinnerFrames = null;
+        this._spinnerFrameIndex = 0;
+        this._spinnerText = "";
+        this._spinnerWidth = 0;
+        this._activeProgress = false;
+        this._progressData = null;
 
         this.levels = LEVELS;
         this.timers = new Map();
@@ -30,7 +48,7 @@ export class Logger {
         this.log = createLogFunction(this);
 
         this.levels.forEach(level => {
-            this[level] = (msg, opt) => this.log(level, msg, opt);
+            this[level] = (...args) => this.log(level, ...args);
         });
 
         const originalError = this.error;
