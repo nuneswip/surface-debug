@@ -2,7 +2,7 @@
 
 <h1 align="center">
     <img 
-      src="https://raw.githubusercontent.com/nuneswip/surface-debug/refs/heads/main/assets/inkfish-nuneswip.svg"
+      src="https://raw.githubusercontent.com/nuneswip/surface-debug/refs/heads/main/assets/title.svg"
       width=512
       alt="InkFish Title"
     />
@@ -47,9 +47,21 @@
 </ul>
 
 <p align="center">
-  <a href="https://github.com/nuneswip/surface-debug/tree/main/assets/preview/preview.md">
-    View Preview
-  </a>
+<details>
+  <summary style="text-align: center;">
+    <strong>Full Preview</strong> — Complete interface
+  </summary>
+  <p align="center">
+    Runtime  <a href="https://raw.githubusercontent.com/nuneswip/surface-debug/main/assets/preview/preview.js">File</a>
+    <br/><br/>
+    <img 
+      src="https://raw.githubusercontent.com/nuneswip/surface-debug/main/assets/preview/preview.svg" 
+      alt="Preview" 
+      width="100%" 
+      style="max-width: 900px; border-radius: 8px;"
+    />
+  </p>
+</details>
 </p>
 
 <hr/>
